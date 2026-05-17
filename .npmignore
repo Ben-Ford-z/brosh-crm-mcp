@@ -1,0 +1,45 @@
+# Source files (only publish compiled dist/)
+src/
+tsconfig.json
+*.ts
+!*.d.ts
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output/
+test/
+tests/
+**/*.test.ts
+**/*.spec.ts
+
+# Documentation (keep README.md)
+docs/
+examples/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# Credentials and local files
+.env
+.env.*
+.brosh-client-id
+.brosh-client-secret
+.brosh-tokens.json
+.brosh-oauth-state.json
+
+# Misc
+.DS_Store
+*.log
+.cache/
+temp/
+tmp/
