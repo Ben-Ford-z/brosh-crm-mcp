@@ -130,7 +130,7 @@ These capabilities make migrating to BROSH CRM, onboarding new teams, and mainta
 - 💰 `opportunities` - Sales Deals
 - 📦 `products` - Product Catalog
 - 💵 `payments` - Payment Records
-- 📄 `invoices` - Invoices & Quotes (use `record_type` field)
+- 📄 `invoices` - Invoices & Quotes (use opportunity's `record_type` field)
 
 </td>
 <td width="33%">
