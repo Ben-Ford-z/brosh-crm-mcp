@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "brosh-crm": {
+      "command": "npx",
+      "args": ["brosh-crm-mcp"],
+      "env": {
+        "BROSH_BASE_URL": "https://app.brosh.io",
+        "BROSH_SOURCE": "mcp"
+      }
+    }
+  }
+}

@@ -174,6 +174,8 @@ npm install -g brosh-crm-mcp
 
 **Step 2:** Configure Claude Desktop
 
+You can copy the sample config file provided in this repository: `claude_desktop_config.json`
+
 Add to your config file:
 
 <details>
