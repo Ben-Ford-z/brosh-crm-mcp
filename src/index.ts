@@ -17,6 +17,7 @@ import axios, { AxiosInstance } from 'axios';
 import * as http from 'http';
 import * as url from 'url';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as crypto from 'crypto';
 
@@ -56,10 +57,39 @@ interface TokenData {
 const BROSH_BASE_URL = process.env.BROSH_BASE_URL || 'https://app.brosh.io';
 const BROSH_SOURCE = (process.env.BROSH_SOURCE || 'mcp') as SourceType;
 const BROSH_SKIP_STATE_VALIDATION = process.env.BROSH_SKIP_STATE_VALIDATION === 'true';
-const TOKEN_FILE = path.join(process.cwd(), '.brosh-tokens.json');
-const CLIENT_ID_FILE = path.join(process.cwd(), '.brosh-client-id');
-const CLIENT_SECRET_FILE = path.join(process.cwd(), '.brosh-client-secret');
-const STATE_FILE = path.join(process.cwd(), '.brosh-oauth-state.json');
+
+function getWritableStorageDir(): string {
+  const primaryDir = path.join(os.homedir(), 'brosh-crm-mcp')
+  const fallbackDir = path.join(os.homedir(), '.brosh-crm-mcp2');
+
+  const checkDir = (dir: string) => {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.accessSync(dir, fs.constants.R_OK | fs.constants.W_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  if (checkDir(primaryDir)) {
+    return primaryDir;
+  }
+
+  if (checkDir(fallbackDir)) {
+    console.error(`⚠️  Current directory is not writable. Using fallback directory: ${fallbackDir}`);
+    return fallbackDir;
+  }
+
+  console.error(`❌ Unable to write to both current directory and fallback user directory. Using current directory as last resort: ${primaryDir}`);
+  return primaryDir;
+}
+
+const STORAGE_DIR = getWritableStorageDir();
+const TOKEN_FILE = path.join(STORAGE_DIR, '.brosh-tokens.json');
+const CLIENT_ID_FILE = path.join(STORAGE_DIR, '.brosh-client-id');
+const CLIENT_SECRET_FILE = path.join(STORAGE_DIR, '.brosh-client-secret');
+const STATE_FILE = path.join(STORAGE_DIR, '.brosh-oauth-state.json');
 
 // Dynamic port management
 let actualPort: number = 3000;

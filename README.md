@@ -168,11 +168,11 @@ These capabilities make migrating to BROSH CRM, onboarding new teams, and mainta
 ### Option 1: Claude Desktop (Recommended)
 
 **Step 1:** Install the package
-```bash
-npm install -g brosh-crm-mcp
-```
+
+**npm i -g brosh-crm-mcp**
 
 **Step 2:** Configure Claude Desktop
+
 
 You can copy the sample config file provided in this repository: `claude_desktop_config.json`
 
