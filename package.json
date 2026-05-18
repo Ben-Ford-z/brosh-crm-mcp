@@ -1,6 +1,6 @@
 {
   "name": "brosh-crm-mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Model Context Protocol (MCP) server for BROSH AI CRM - provides OAuth2 authentication and full CRUD operations",
   "type": "module",
   "main": "dist/index.js",
