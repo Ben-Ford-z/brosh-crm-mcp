@@ -11,7 +11,7 @@
 [![OpenAI Plugin](https://img.shields.io/badge/OpenAI-Plugin%20Directory-412991?logo=openai&logoColor=white)](https://chatgpt.com/plugins/plugin_asdk_app_6a286d326c3c8191acfa27fdfcdc2841?q=brosh)
 [![Codex Plugin](https://img.shields.io/badge/Codex-Plugin%20Directory-0A0A0A?logo=openai&logoColor=white)](https://platform.openai.com/codex)
 
-![BROSH AI SDR — Less Work. More Results.](images/ai-sdr-hero.jpg)
+![BROSH AI SDR — Less Work. More Results.](images/ai_employee_brosh.jpg)
 
 > 🟢 **Now available in the [OpenAI Plugin Directory](https://chatgpt.com/plugins/plugin_asdk_app_6a286d326c3c8191acfa27fdfcdc2841?q=brosh) and the [OpenAI Codex Plugin Directory](https://platform.openai.com/codex)** — connect directly from ChatGPT or Codex with zero setup.
 
