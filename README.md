@@ -1,4 +1,4 @@
-# 🚀 BROSH CRM MCP Server
+# 🚀 BROSH CRM MCP Server / AI Employee / AI SDR
 
 ### Official AI-Powered Customer Relationship Management for Claude AI & MCP-Compatible Applications
 
