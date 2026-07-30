@@ -8,10 +8,17 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org/)
+[![OpenAI Plugin](https://img.shields.io/badge/OpenAI-Plugin%20Directory-412991?logo=openai&logoColor=white)](https://chatgpt.com/plugins/plugin_asdk_app_6a286d326c3c8191acfa27fdfcdc2841?q=brosh)
+[![Codex Plugin](https://img.shields.io/badge/Codex-Plugin%20Directory-0A0A0A?logo=openai&logoColor=white)](https://platform.openai.com/codex)
 
-**Transform your AI assistant into a powerful CRM  smart CRM master and automation hero.** Connect [BROSH AI CRM](https://brosh.io) to Claude Desktop, Cline, or any Model Context Protocol (MCP) compatible application for intelligent customer data management, sales automation, and business intelligence.
+![BROSH AI SDR — Less Work. More Results.](images/ai-sdr-hero.jpg)
 
-Perfect for **sales teams**, **customer success managers**, **marketing automation**, **business owners**, and **developers** building AI-powered CRM workflows.
+> 🟢 **Now available in the [OpenAI Plugin Directory](https://chatgpt.com/plugins/plugin_asdk_app_6a286d326c3c8191acfa27fdfcdc2841?q=brosh) and the [OpenAI Codex Plugin Directory](https://platform.openai.com/codex)** — connect directly from ChatGPT or Codex with zero setup.
+
+**Transform your AI assistant into a powerful AI SDR, smart CRM engine, and automation hero.** Connect [BROSH AI CRM](https://brosh.io) to Claude Desktop, ChatGPT, Cline, Codex, or any Model Context Protocol (MCP) compatible application for intelligent customer data management, AI-driven sales outreach, and business intelligence.
+
+Perfect for **AI SDR & outbound sales teams**, **account executives**, **customer success managers**, **marketing automation**, **business owners**, and **developers** building AI-powered CRM workflows and agents.
+
 
 ---
 
@@ -65,6 +72,13 @@ These capabilities make migrating to BROSH CRM, onboarding new teams, and mainta
 - **Data export** - Extract CRM data for external analysis
 - **Trend analysis** - Identify patterns in sales, support, and customer data
 - **Executive reporting** - Generate summaries for stakeholder meetings
+
+### 🤖 AI SDR — Smarter Outreach, More Meetings
+- **Prospect discovery** - AI identifies and imports ideal leads that match your ICP
+- **Personalized outreach** - Generate tailored email sequences from CRM data
+- **Automated follow-up** - Handle replies and follow-ups without manual effort
+- **Meeting booking** - Automatically log booked meetings and calendar events in the CRM
+- **Pipeline hand-off** - Move qualified prospects to the sales pipeline seamlessly
 
 ### 🔄 Workflow Automation
 - **Data synchronization** - Keep CRM data in sync with other systems
@@ -161,74 +175,43 @@ These capabilities make migrating to BROSH CRM, onboarding new teams, and mainta
 ## 🚀 Quick Start Installation
 
 ### Prerequisites
-- Node.js 18+ installed
-- Claude Desktop, Cline, or any MCP-compatible AI application
+- Claude Desktop, Cline, VS Code, or any MCP-compatible AI application
 - BROSH CRM account ([Sign up free](https://brosh.io))
 
-### Option 1: Claude Desktop (Recommended)
+### Recommended: Use the hosted BROSH MCP server
 
-**Step 1:** Install the package
+BROSH AI CRM now provides a dedicated OAuth-enabled MCP endpoint at https://mcp.brosh.io/api/mcp. This is the recommended way to connect your assistant to BROSH CRM without downloading or running a custom local Node server.
 
-**npm i -g brosh-crm-mcp**
+Connect your MCP client to this URL and complete the OAuth sign-in in your browser.
 
-**Step 2:** Configure Claude Desktop
-
-
-You can copy the sample config file provided in this repository: `claude_desktop_config.json`
-
-Add to your config file:
-
-<details>
-<summary><b>Windows</b> - Click to expand</summary>
-
-File location: `%APPDATA%\Claude\claude_desktop_config.json`
+Example configuration for clients that support remote HTTP MCP servers:
 
 ```json
 {
   "mcpServers": {
     "brosh-crm": {
-      "command": "npx",
-      "args": ["brosh-crm-mcp"],
-      "env": {
-        "BROSH_BASE_URL": "https://app.brosh.io",
-        "BROSH_SOURCE": "mcp"
-      }
+      "type": "http",
+      "url": "https://mcp.brosh.io/api/mcp"
     }
   }
 }
 ```
-</details>
 
-<details>
-<summary><b>macOS</b> - Click to expand</summary>
+Once connected, your assistant will prompt you to authenticate with BROSH CRM and then you can start using CRM tools immediately.
 
-File location: `~/Library/Application Support/Claude/claude_desktop_config.json`
+### Optional: Run the local npm package
+
+If you specifically want to run a local Node-based server, you can still use the npm package:
+
+```bash
+npm i -g brosh-crm-mcp
+```
+
+Then configure your client with:
 
 ```json
 {
   "mcpServers": {
-    "brosh-crm": {
-      "command": "npx",
-      "args": ["brosh-crm-mcp"],
-      "env": {
-        "BROSH_BASE_URL": "https://app.brosh.io",
-        "BROSH_SOURCE": "mcp"
-      }
-    }
-  }
-}
-```
-</details>
-
-**Step 3:** Restart Claude Desktop
-
-### Option 2: VS Code with Cline Extension
-
-Add to `.vscode/mcp.json` in your workspace:
-
-```json
-{
-  "servers": {
     "brosh-crm": {
       "command": "npx",
       "args": ["brosh-crm-mcp"],
@@ -245,13 +228,14 @@ Add to `.vscode/mcp.json` in your workspace:
 
 ## 🎬 Getting Started (Authentication)
 
-### Step 1: Start the MCP Server
+### Step 1: Connect to the hosted MCP server
 
-The server starts automatically when you launch your MCP client (Claude Desktop, Cline, etc.).
+Add the BROSH MCP endpoint to your client using the configuration above, or use your client’s built-in remote MCP connection flow.
 
 ### Step 2: Authenticate with BROSH CRM
 
-In your AI assistant, say:
+When the connection starts, your assistant should prompt you to begin authentication. If it does not, say:
+
 ```
 "Start BROSH CRM authentication"
 ```
@@ -261,15 +245,14 @@ Or use the tool directly:
 Use the brosh_start_oauth tool
 ```
 
-### Step 3: Complete OAuth Flow
+### Step 3: Complete the OAuth flow
 
-1. **Open the OAuth URL** provided by the assistant (http://localhost:3000/)
-2. **Click the login button** on the status dashboard
-3. **Sign in** with your BROSH CRM credentials
-4. **Authorize** the application to access your CRM data
-5. **You're ready!** The assistant confirms successful authentication
+1. **Open the OAuth URL** provided by the assistant or browser prompt
+2. **Sign in** with your BROSH CRM credentials
+3. **Authorize** the application to access your CRM data
+4. **You’re ready!** The assistant confirms successful authentication
 
-### Step 4: Start Using CRM Commands
+### Step 4: Start using CRM commands
 
 Now you can ask your AI assistant natural language queries:
 
@@ -312,6 +295,80 @@ Now you can ask your AI assistant natural language queries:
 ---
 
 ## 💡 Practical Usage Examples
+
+### 🤖 AI SDR — End-to-End Outbound Workflow
+
+**Step 1 — Find and import prospects matching your ICP:**
+```typescript
+brosh_find_records({
+  table_name: "contacts",
+  filter: {
+    where: {
+      lead_source: "Website",
+      industry: "Technology",
+      company_size: { ">=": 50 }
+    }
+  },
+  fields: ["id", "name", "email", "company", "title", "lead_score"],
+  sort: [{ field: "lead_score", direction: "DESC" }],
+  limit: 50
+})
+```
+
+**Step 2 — Log personalized outreach activity for each prospect:**
+```typescript
+brosh_create_records({
+  table_name: "activity",
+  records: [
+    {
+      contact_id: 123,
+      type: "Email",
+      subject: "Outreach — AI-powered CRM for your team",
+      notes: "Sent personalized intro email. References company growth in Q2.",
+      status: "Sent",
+      date: "2026-07-30"
+    }
+  ]
+})
+```
+
+**Step 3 — Record a reply and schedule a follow-up:**
+```typescript
+brosh_update_records({
+  table_name: "contacts",
+  records: [
+    {
+      id: 123,
+      lead_score: 92,
+      next_action: "Follow-up call",
+      next_action_date: "2026-08-02",
+      notes: "Replied positively. Interested in enterprise plan. Schedule discovery call."
+    }
+  ]
+})
+```
+
+**Step 4 — Create an opportunity when a meeting is booked:**
+```typescript
+brosh_create_records({
+  table_name: "opportunities",
+  records: [
+    {
+      name: "Acme Corp — Discovery Call",
+      contact_id: 123,
+      stage: "Discovery",
+      amount: 24000,
+      probability: 30,
+      expected_close_date: "2026-09-30",
+      lead_source: "AI SDR Outbound"
+    }
+  ]
+})
+```
+
+> **Result:** Fewer than 4 conversational prompts replace an entire outbound workflow — prospect research, outreach logging, follow-up scheduling, and pipeline creation — with no manual data entry.
+
+---
 
 ### 🔍 Sales Intelligence & Lead Management
 
@@ -660,7 +717,7 @@ For advanced users who need custom OAuth settings:
         "BROSH_SOURCE": "mcp",
         "BROSH_CLIENT_ID": "your-custom-client-id",
         "BROSH_CLIENT_SECRET": "your-custom-secret",
-        "BROSH_REDIRECT_URI": "http://localhost:3000/oauth/callback"
+        "BROSH_REDIRECT_URI": "http://app.brosh.io/oauth/callback"
       }
     }
   }
@@ -671,7 +728,7 @@ For advanced users who need custom OAuth settings:
 
 ## 🎨 OAuth Status Dashboard
 
-Access the built-in web dashboard at **http://localhost:3000/**
+Access the built-in web dashboard at **http://app.brosh.io/**
 
 ### Features:
 - ✅ **Live authentication status** - See if you're connected
@@ -742,7 +799,7 @@ Use the displayed port number.
 <summary><b>❌ "Authentication Failed" or "Token Expired"</b></summary>
 
 **Steps to resolve:**
-1. Visit http://localhost:3000/ (or your actual port)
+1. Visit http://app.brosh.io/ (or your actual port)
 2. Click "Logout" to clear old tokens
 3. Click "Login to BROSH CRM"
 4. Complete authentication flow again
@@ -760,8 +817,8 @@ Use brosh_refresh_token tool
 **Cause:** Browser attempting HTTPS connection
 
 **Solution:** Use `http://` (not `https://`):
-- ✅ Correct: `http://localhost:3000`
-- ❌ Wrong: `https://localhost:3000`
+- ✅ Correct: `http://app.brosh.io`
+- ❌ Wrong: `https://app.brosh.io`
 
 The local OAuth server uses HTTP only.
 
@@ -1003,7 +1060,7 @@ See the [Contributing](#-development--contributing) section for details.
 - Make API requests to BROSH CRM
 - Refresh access tokens
 
-However, the OAuth status dashboard (http://localhost:3000/) works offline for viewing cached status.
+However, the OAuth status dashboard (http://app.brosh.io/) works offline for viewing cached status.
 
 </details>
 
@@ -1080,6 +1137,13 @@ Here's a real-world example of using BROSH CRM MCP for a complete sales cycle:
 ---
 
 ## 👥 Who Should Use This?
+
+### 🤖 AI SDR Teams & Outbound Sales
+- Let AI find and import ideal prospects directly into the CRM
+- Generate personalized outreach emails from contact and company data
+- Automate follow-up sequences and log all activity automatically
+- Book meetings and push them into the pipeline without manual steps
+- Track outbound campaign performance and conversion rates in real time
 
 ### 🎯 Sales Teams & Account Executives
 - Quickly access customer data during calls
