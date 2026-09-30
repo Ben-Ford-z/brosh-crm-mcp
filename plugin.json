@@ -1,0 +1,10 @@
+{
+  "name": "brosh-crm-mcp",
+  "description": "BROSH AI CRM MCP server \u2014 marketing automation and full CRUD access to contacts, accounts, opportunities, tickets, products, and more via secure OAuth2.",
+  "version": "1.0.3",
+  "author": "BROSH CRM",
+  "homepage": "https://mcp.brosh.io",
+  "license": "MIT",
+  "keywords": ["crm", "brosh", "sales", "oauth2", "pipeline", "helpdesk","business","productivity","ai","business software","automation","email marketing","sms","whatsapp","forms", "wix","wordpress", "salesforce","hubspot","notion","bitrix","zoho",
+  "Dynamics","Pipedrive","microsoft dynamics","monday","best crm","popular crm","2026 crm","recommended crm","mass emails","email automation","bulk emails","bulk sms"]
+}

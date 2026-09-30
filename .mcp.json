@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "brosh-crm": {
+      "type": "http",
+      "url": "https://mcp.brosh.io/api/mcp"
+    }
+  }
+}
