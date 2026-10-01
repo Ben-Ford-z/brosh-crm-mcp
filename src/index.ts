@@ -92,7 +92,7 @@ const CLIENT_SECRET_FILE = path.join(STORAGE_DIR, '.brosh-client-secret');
 const STATE_FILE = path.join(STORAGE_DIR, '.brosh-oauth-state.json');
 
 // Dynamic port management
-let actualPort: number = 3000;
+let actualPort: number = 3001;
 const getRedirectUri = () => process.env.BROSH_REDIRECT_URI || `http://localhost:${actualPort}/oauth/callback`;
 
 // Generate or load client ID (random for each installation like Zapier)
@@ -269,6 +269,30 @@ function createApiClient(accessToken?: string): AxiosInstance {
   });
 }
 
+async function ensureValidAccessToken(): Promise<void> {
+  if (!cachedTokens) {
+    cachedTokens = loadTokens();
+  }
+
+  if (!cachedTokens?.access_token) {
+    throw new Error('No access token available. Please authenticate first using brosh_start_oauth.');
+  }
+
+  if (!cachedTokens.expires_at) {
+    return;
+  }
+
+  const remainingMs = cachedTokens.expires_at - Date.now();
+  if (remainingMs > 5 * 60 * 1000) {
+    return;
+  }
+
+  const refreshed = await refreshAccessToken(cachedTokens.refresh_token, BROSH_CLIENT_ID, BROSH_CLIENT_SECRET);
+  if (!refreshed && remainingMs <= 0) {
+    throw new Error('Access token expired and auto-refresh failed. Please re-authenticate.');
+  }
+}
+
 // OAuth2 callback server (runs indefinitely)
 function startOAuthCallbackServer(port: number = 3000): Promise<never> {
   return new Promise((resolve, reject) => {
@@ -278,8 +302,26 @@ function startOAuthCallbackServer(port: number = 3000): Promise<never> {
       
         // Serve favicon from app.brosh.io
         if (parsedUrl.pathname === '/favicon.ico') {
-          res.writeHead(302, { 'Location': 'https://app.brosh.io/favicon.ico' });
+          res.writeHead(302, { 'Location': 'https://www.brosh.io/favicon.ico' });
           res.end();
+          return;
+        }
+
+        // Serve local setup screenshots used in the landing page
+        if (parsedUrl.pathname === '/.well-known/cpt_mcp.jpg' || parsedUrl.pathname === '/.well-known/brosh_cload.jpg') {
+          try {
+            const fileName = parsedUrl.pathname.endsWith('cpt_mcp.jpg') ? 'cpt_mcp.jpg' : 'brosh_cload.jpg';
+            const filePath = path.join(process.cwd(), 'www', 'mcp', '.well-known', fileName);
+            const imageBuffer = fs.readFileSync(filePath);
+            res.writeHead(200, {
+              'Content-Type': 'image/jpeg',
+              'Cache-Control': 'public, max-age=3600',
+            });
+            res.end(imageBuffer);
+          } catch {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('Image not found');
+          }
           return;
         }
       
@@ -382,43 +424,87 @@ function startOAuthCallbackServer(port: number = 3000): Promise<never> {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BROSH CRM OAuth2 ${isAuthenticated ? 'Status' : 'Authentication'}</title>
-  <link rel="icon" type="image/x-icon" href="https://app.brosh.io/favicon.ico">
+  <meta name="description" content="BROSH CRM MCP authentication page for ChatGPT, Claude, and VS Code. Secure OAuth2 CRM integration with AI workflows, token refresh, and fast setup.">
+  <meta name="keywords" content="BROSH CRM MCP, ChatGPT CRM connector, Claude CRM MCP, OAuth2 CRM authentication, AI CRM workflows, MCP token refresh, CRM automation">
+  <link rel="icon" type="image/x-icon" href="https://www.brosh.io/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-1: #071426;
+      --bg-2: #0f2e46;
+      --bg-3: #1a6a7e;
+      --ink: #0b213d;
+      --muted: #4f6281;
+      --line: #d8e4f5;
+      --card: #f7fbff;
+      --ok-bg: #d8f7e9;
+      --ok-tx: #10563d;
+      --info-bg: #d9efff;
+      --info-tx: #184f7a;
+      --warn-bg: #fff2de;
+      --warn-tx: #925305;
+      --brand-1: #08a2a1;
+      --brand-2: #1a5cc8;
+      --accent: #ff8a3d;
+    }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background:
+        radial-gradient(900px 560px at 5% -20%, rgba(255,138,61,.26), transparent 70%),
+        radial-gradient(1000px 600px at 95% -30%, rgba(8,162,161,.24), transparent 72%),
+        linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 45%, var(--bg-3) 100%);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 26px;
+      color: var(--ink);
     }
     .container {
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      padding: 48px;
-      max-width: 600px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      border-radius: 24px;
+      box-shadow: 0 28px 80px rgba(1, 8, 20, 0.42);
+      border: 1px solid rgba(255,255,255,0.6);
+      padding: 34px;
+      max-width: 980px;
       width: 100%;
+      position: relative;
+      overflow: hidden;
     }
-    .header { text-align: center; margin-bottom: 32px; }
+    .container::before {
+      content: '';
+      position: absolute;
+      width: 440px;
+      height: 440px;
+      right: -210px;
+      top: -230px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(8,162,161,0.2), transparent 70%);
+      pointer-events: none;
+    }
+    .header { text-align: center; margin-bottom: 28px; position: relative; z-index: 1; }
     h1 {
-      color: #1a202c;
-      font-size: 32px;
-      font-weight: 700;
+      color: #0b2c4f;
+      font-size: clamp(30px, 5vw, 46px);
+      font-weight: 800;
+      font-family: 'Space Grotesk', 'Manrope', sans-serif;
       margin-bottom: 8px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(130deg, #104179 0%, #0e7f8f 55%, #ff8a3d 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      letter-spacing: -1px;
     }
-    .subtitle { color: #718096; font-size: 16px; }
-    .content { margin: 32px 0; }
+    .subtitle { color: #597095; font-size: 16px; font-weight: 500; }
+    .content { margin: 24px 0; position: relative; z-index: 1; }
     .steps {
-      background: #f7fafc;
-      border-radius: 12px;
-      padding: 24px;
+      background: linear-gradient(180deg, #f9fcff 0%, #f1f7ff 100%);
+      border-radius: 14px;
+      border: 1px solid #dce8f6;
+      padding: 22px;
       margin: 24px 0;
     }
     .step {
@@ -428,115 +514,126 @@ function startOAuthCallbackServer(port: number = 3000): Promise<never> {
     }
     .step:last-child { margin-bottom: 0; }
     .step-number {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(130deg, var(--brand-1), var(--brand-2));
       color: white;
-      width: 32px;
-      height: 32px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 14px;
       margin-right: 16px;
       flex-shrink: 0;
+      box-shadow: 0 6px 18px rgba(26, 92, 200, 0.35);
     }
     .step-content { flex: 1; }
     .step-title {
-      color: #2d3748;
-      font-weight: 600;
+      color: #1e3a63;
+      font-weight: 700;
       font-size: 16px;
       margin-bottom: 4px;
     }
     .step-desc {
-      color: #718096;
+      color: #60789e;
       font-size: 14px;
       line-height: 1.5;
     }
     .info-box {
-      background: #edf2f7;
-      border-left: 4px solid #667eea;
+      background: #eef6ff;
+      border: 1px solid #d7e7fb;
+      border-left: 4px solid var(--brand-2);
       padding: 16px 20px;
-      border-radius: 8px;
+      border-radius: 12px;
       margin: 24px 0;
     }
     .info-box p {
-      color: #2d3748;
+      color: #254267;
       font-size: 14px;
       line-height: 1.6;
       margin-bottom: 8px;
     }
     .info-box p:last-child { margin-bottom: 0; }
-    .info-box strong { color: #1a202c; }
+    .info-box strong { color: #14355d; }
     .button-container { text-align: center; margin-top: 32px; }
     .login-button {
       display: inline-block;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(130deg, var(--brand-1) 0%, var(--brand-2) 65%, #12306f 100%);
       color: white;
-      padding: 16px 48px;
-      border-radius: 12px;
+      padding: 15px 42px;
+      border-radius: 14px;
       font-size: 18px;
-      font-weight: 600;
+      font-weight: 700;
       text-decoration: none;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-      transition: all 0.3s ease;
+      box-shadow: 0 12px 26px rgba(16, 65, 121, 0.33);
+      transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
       border: none;
       cursor: pointer;
+      letter-spacing: .2px;
     }
     .login-button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+      transform: translateY(-2px) scale(1.01);
+      box-shadow: 0 16px 36px rgba(16, 65, 121, 0.4);
+      filter: saturate(1.08);
     }
     .login-button:active { transform: translateY(0); }
     .logout-button {
       display: inline-block;
-      background: #e53e3e;
+      background: linear-gradient(130deg, #ef4444, #c0392b);
       color: white;
       padding: 12px 32px;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 14px;
       font-weight: 600;
       text-decoration: none;
       margin-left: 12px;
-      transition: all 0.3s ease;
+      transition: transform .2s ease, box-shadow .2s ease;
     }
     .logout-button:hover {
-      background: #c53030;
       transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(192,57,43,.35);
     }
     .footer {
       margin-top: 32px;
-      padding-top: 24px;
-      border-top: 1px solid #e2e8f0;
+      padding-top: 20px;
+      border-top: 1px solid #dbe8fa;
       text-align: center;
-      color: #718096;
+      color: #60769b;
       font-size: 14px;
+      position: relative;
+      z-index: 1;
     }
     .status {
       padding: 12px 20px;
-      border-radius: 8px;
-      margin-bottom: 24px;
+      border-radius: 12px;
+      margin-bottom: 14px;
       text-align: center;
       font-weight: 600;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
+      border: 1px solid transparent;
     }
     .status.authenticated {
-      background: #c6f6d5;
-      color: #22543d;
+      background: var(--ok-bg);
+      color: var(--ok-tx);
+      border-color: #bfe8d3;
     }
     .status.ready {
-      background: #bee3f8;
-      color: #2c5282;
+      background: var(--info-bg);
+      color: var(--info-tx);
+      border-color: #bdddf7;
     }
     .status.warning {
-      background: #fef5e7;
-      color: #c05621;
+      background: var(--warn-bg);
+      color: var(--warn-tx);
+      border-color: #ffe0b8;
     }
     .user-info {
-      background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+      background: linear-gradient(180deg, #f8fcff 0%, #eff7ff 100%);
+      border: 1px solid #dce8fa;
       border-radius: 12px;
       padding: 20px;
       margin: 24px 0;
@@ -549,20 +646,394 @@ function startOAuthCallbackServer(port: number = 3000): Promise<never> {
     }
     .user-info-row:last-child { border-bottom: none; }
     .user-info-label {
-      color: #718096;
+      color: #60779d;
       font-size: 14px;
       font-weight: 600;
     }
     .user-info-value {
-      color: #2d3748;
+      color: #1f3b64;
       font-size: 14px;
-      font-weight: 500;
+      font-weight: 700;
     }
     .refresh-hint {
       text-align: center;
-      color: #718096;
+      color: #60779d;
       font-size: 13px;
       margin-top: 16px;
+    }
+    .hero-shell {
+      background: linear-gradient(135deg, #071b3b 0%, #164280 55%, #0f9fa8 100%);
+      border-radius: 18px;
+      padding: 26px;
+      color: #e7f1ff;
+      border: 1px solid rgba(255,255,255,.15);
+      box-shadow: 0 14px 40px rgba(6, 23, 54, 0.28);
+      margin-bottom: 20px;
+    }
+    .hero-shell h2 {
+      font-size: clamp(24px, 4vw, 38px);
+      line-height: 1.1;
+      margin-bottom: 10px;
+      color: #ffffff;
+      font-family: 'Space Grotesk', 'Manrope', sans-serif;
+      letter-spacing: -.6px;
+    }
+    .hero-shell p {
+      color: #c8dafb;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+    .hero-install {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 13px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      background: rgba(255,255,255,0.14);
+      color: #e8f3ff;
+    }
+    .chip-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #eaf4ff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      text-decoration: none;
+      transition: transform .2s ease, background .2s ease;
+    }
+    .chip-link:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.16);
+    }
+    .details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 18px 0;
+    }
+    .detail-card {
+      background: linear-gradient(180deg, #fafdff 0%, #f1f7ff 100%);
+      border: 1px solid #d9e6f8;
+      border-radius: 14px;
+      padding: 16px;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .detail-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(26, 65, 113, 0.12);
+    }
+    .detail-card h3 {
+      font-size: 20px;
+      color: #123a66;
+      margin-bottom: 8px;
+      letter-spacing: -.3px;
+    }
+    .detail-card p {
+      font-size: 14px;
+      color: #4a5568;
+      line-height: 1.65;
+      margin-bottom: 8px;
+    }
+    .detail-list {
+      list-style: none;
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .detail-list li {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #2d3748;
+    }
+    .mini-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .mini-step {
+      background: #ffffff;
+      border: 1px solid #d8e5f6;
+      border-radius: 12px;
+      padding: 12px;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .mini-step:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(22,66,128,.14);
+    }
+    .mini-step .num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(130deg, var(--brand-1), var(--brand-2));
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .mini-step h4 {
+      font-size: 14px;
+      color: #1f3b64;
+      margin-bottom: 4px;
+    }
+    .mini-step p {
+      font-size: 12px;
+      color: #5a6d8b;
+      line-height: 1.45;
+    }
+    .mcp-link-box {
+      margin-top: 12px;
+      background: rgba(6, 22, 53, 0.74);
+      color: #dce8ff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,.16);
+      font-family: 'Space Grotesk', 'Courier New', monospace;
+      font-size: 13px;
+      word-break: break-all;
+    }
+    .section-title {
+      font-size: 24px;
+      letter-spacing: -.6px;
+      color: #123a66;
+      margin-bottom: 8px;
+    }
+    .section-sub {
+      font-size: 14px;
+      color: #56709a;
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 14px 0;
+    }
+    .feature-card {
+      background: #fff;
+      border: 1px solid #d8e5f6;
+      border-radius: 12px;
+      padding: 14px;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .feature-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 22px rgba(22,66,128,.12);
+    }
+    .feature-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    .feature-card h3 {
+      font-size: 14px;
+      color: #103463;
+      margin-bottom: 6px;
+    }
+    .feature-card p {
+      font-size: 13px;
+      color: #5b7196;
+      line-height: 1.5;
+    }
+    .ic1{background:#efe9ff}.ic2{background:#e6f5ff}.ic3{background:#e6fff6}.ic4{background:#fff3e6}.ic5{background:#ebf0ff}.ic6{background:#ffeaf5}
+    .cases-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 14px 0;
+    }
+    .case-card {
+      background: #fff;
+      border: 1px solid #d8e5f6;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .case-card h3 {
+      font-size: 14px;
+      color: #103463;
+      margin-bottom: 7px;
+    }
+    .case-card ul {
+      list-style: none;
+      display: grid;
+      gap: 6px;
+    }
+    .case-card li {
+      font-size: 12px;
+      color: #5a7095;
+      line-height: 1.45;
+    }
+    .case-card li:before { content: '→ '; color: #0b7bc8; font-weight: 700; }
+    .persona-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 14px 0;
+    }
+    .persona-card {
+      background: #fff;
+      border: 1px solid #d8e5f6;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .persona-card h3 {
+      font-size: 14px;
+      color: #103463;
+      margin-bottom: 7px;
+    }
+    .persona-card ul {
+      list-style: none;
+      display: grid;
+      gap: 6px;
+    }
+    .persona-card li {
+      font-size: 12px;
+      color: #5a7095;
+      line-height: 1.45;
+    }
+    .persona-card li:before { content: '✓ '; color: #0e9b63; font-weight: 700; }
+    .shot-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .shot-card {
+      background: #fff;
+      border: 1px solid #d8e5f6;
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 8px 20px rgba(17, 50, 97, 0.08);
+    }
+    .shot-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .shot-head h3 {
+      font-size: 14px;
+      color: #103463;
+    }
+    .shot-tag {
+      font-size: 11px;
+      font-weight: 700;
+      color: #0b6fc7;
+      background: #eaf3ff;
+      border: 1px solid #d4e4ff;
+      padding: 4px 8px;
+      border-radius: 999px;
+    }
+    .shot-wrap {
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #d7e4fa;
+      background: #f8fbff;
+    }
+    .shot-wrap img {
+      display: block;
+      width: 100%;
+      height: auto;
+      cursor: zoom-in;
+    }
+    .shot-steps {
+      list-style: none;
+      display: grid;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .shot-steps li {
+      font-size: 12px;
+      color: #566f94;
+      line-height: 1.45;
+    }
+    .shot-steps li:before { content: '• '; color: #0b7bc8; font-weight: 700; }
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7, 18, 37, 0.86);
+      z-index: 9999;
+      padding: 20px;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img {
+      max-width: min(1200px, 94vw);
+      max-height: 88vh;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.28);
+      box-shadow: 0 28px 80px rgba(0,0,0,.45);
+      cursor: zoom-out;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 14px;
+      right: 18px;
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 999px;
+      background: rgba(8, 20, 45, .8);
+      color: #fff;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .lightbox-hint {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 14px;
+      color: #dbe7ff;
+      font-size: 12px;
+      background: rgba(10,26,56,.7);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 999px;
+      padding: 6px 10px;
+    }
+    @media (max-width: 900px) {
+      .container { padding: 24px; }
+      .details-grid { grid-template-columns: 1fr; }
+      .mini-steps { grid-template-columns: 1fr; }
+      .features-grid, .cases-grid, .persona-grid { grid-template-columns: 1fr 1fr; }
+      .shot-grid { grid-template-columns: 1fr; }
+      .button-container .logout-button { margin-left: 0; margin-top: 10px; display: inline-block; }
+    }
+    @media (max-width: 620px) {
+      body { padding: 14px; }
+      .container { padding: 18px; border-radius: 18px; }
+      .hero-shell { padding: 18px; }
+      .hero-shell p { font-size: 14px; }
+      .chip-link { width: 100%; justify-content: center; }
+      .status { font-size: 13px; }
+      .step-title { font-size: 15px; }
+      .step-desc { font-size: 13px; }
+      .features-grid, .cases-grid, .persona-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -640,9 +1111,152 @@ function startOAuthCallbackServer(port: number = 3000): Promise<never> {
         </div>
         <div class="refresh-hint">This page auto-updates status on each visit</div>
       ` : `
-        <p style="color: #2d3748; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
-          Welcome! This server is waiting to complete your BROSH CRM authentication. 
-          Click the button below to log in and authorize access to your CRM data.
+        <div class="hero-shell">
+          <h2>BROSH CRM MCP Gateway</h2>
+          <p>Connect your AI assistant to BROSH CRM with one MCP link and OAuth sign-in. Built for ChatGPT, Claude, Cline, VS Code, and other MCP clients with secure OAuth2 CRM automation.</p>
+          <div class="hero-install">
+            <span class="pill">Simple install</span>
+            <a class="chip-link" href="https://mcp.brosh.io" target="_blank" rel="noopener">MCP Link: https://mcp.brosh.io</a>
+            <a class="chip-link" href="https://app.brosh.io" target="_blank" rel="noopener">Open CRM</a>
+          </div>
+          <div class="mcp-link-box">Use this in your client: https://mcp.brosh.io</div>
+        </div>
+
+        <div class="details-grid">
+          <div class="detail-card">
+            <h3>Use Cases First: Real Team Workflows</h3>
+            <ul class="detail-list">
+              <li>📈 Identify high-intent leads with no recent activity and trigger follow-up actions. Sample: "Find hot leads with score over 80 and no activity in 5 days, then draft next-best outreach for each owner."</li>
+              <li>🎯 Keep pipeline hygiene clean by detecting stale stages, missing close dates, and inconsistent deal fields. Sample: "Show opportunities stuck in the same stage for 21+ days and propose updates to stage, value, and close date."</li>
+              <li>🧩 Use MCP to revise/add CRM field settings before import. Sample: "Learn CSV columns, add missing fields in BROSH CRM, then import contacts safely."</li>
+              <li>✉️ Run direct outreach through MCP email tools. Sample: "Use CRM templates for newsletter sends, or generate tailored product emails per contact and send one-by-one bespoked messages."</li>
+              <li>🧾 Build executive KPI snapshots for deals, support load, retention signals, and payments. Sample: "Create a weekly executive summary with pipeline coverage, win-rate trend, overdue invoices, and churn-risk movement."</li>
+              <li>🛟 Surface SLA-risk tickets early and summarize recurring issue clusters by account segment. Sample: "List tickets likely to breach SLA in the next 12 hours, grouped by priority, ARR, and root-cause theme."</li>
+              <li>🔁 Run repeatable CRM automation playbooks with consistent output formatting for teams. Sample: "Run the Monday revenue ops checklist: stale deals, missing decision-makers, at-risk renewals, and suggested owner actions."</li>
+            </ul>
+          </div>
+          <div class="detail-card">
+            <h3>Use Cases By Function</h3>
+            <ul class="detail-list">
+              <li>🧠 AI Data Enrichment: detect missing CRM fields, research values, and update records. Sample: "Tell me which contacts are missing role, industry, or company size, enrich them, and update each record."</li>
+              <li>🎯 Customer Prospecting: discover new target customers from external signals and add them to CRM. Sample: "Scan stock exchange updates and suggest companies that may need our service, collect their details, and create CRM records."</li>
+              <li>💼 Sales: score leads, prioritize deals, and forecast revenue by stage. Sample: "Show deals above 50k with no update in 10 days and suggest next action by owner."</li>
+              <li>🧱 CSV Import + Field Revision: learn the CSV schema, detect missing fields, then revise/add fields before import. Sample: "Analyze this CSV, create missing contact fields, then import all valid rows into CRM."</li>
+              <li>📰 Template Newsletter Send: send newsletters from CRM templates with merge fields via MCP. Sample: "Use newsletter template 42, include dynamic fields, and send to active subscribers."</li>
+              <li>✉️ Custom AI Tailored Email: research each customer and send one-by-one personalized product emails. Sample: "Research each account, draft a tailored product message, and send a unique email per contact."</li>
+              <li>👥 Customer Success: update account notes and prevent churn with early warnings. Sample: "Find accounts with low activity + unresolved tickets and draft rescue plans."</li>
+              <li>📣 Marketing Ops: segment audiences and validate campaign attribution quality. Sample: "Segment fintech leads from EMEA with high intent and export top campaign performers."</li>
+              <li>🎫 Support: prioritize tickets by SLA risk and account value. Sample: "List tickets likely to breach SLA in 8 hours sorted by ARR impact."</li>
+              <li>📈 Leadership: generate board-ready performance snapshots in seconds. Sample: "Build weekly KPI summary for pipeline, win rate, churn risk, and collections."</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <h2 class="section-title">Features</h2>
+          <p class="section-sub">Everything you need to run BROSH CRM through MCP with security, speed, and automation.</p>
+          <div class="features-grid">
+            <div class="feature-card"><span class="feature-icon ic1">🔐</span><h3>Enterprise OAuth2</h3><p>Secure auth, scoped access, and robust session handling.</p></div>
+            <div class="feature-card"><span class="feature-icon ic2">📊</span><h3>Full CRUD</h3><p>Create, read, update, and delete records across key CRM tables.</p></div>
+            <div class="feature-card"><span class="feature-icon ic3">🤖</span><h3>AI Native</h3><p>Ask in natural language and execute multi-step CRM workflows.</p></div>
+            <div class="feature-card"><span class="feature-icon ic4">⚡</span><h3>Zero Config</h3><p>Add the MCP URL, sign in, and start using it in minutes.</p></div>
+            <div class="feature-card"><span class="feature-icon ic5">🔄</span><h3>Token Auto Refresh</h3><p>Expired tokens are refreshed automatically when possible.</p></div>
+            <div class="feature-card"><span class="feature-icon ic6">📡</span><h3>OpenAI/Claude Ready</h3><p>Works with modern MCP clients and OAuth discovery flows.</p></div>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <h2 class="section-title">Use Cases</h2>
+          <p class="section-sub">Common ways teams use BROSH MCP in daily operations.</p>
+          <div class="cases-grid">
+            <div class="case-card"><h3>AI Data Enrichment</h3><ul><li>Detect records with missing firmographic/contact fields</li><li>Ask AI to search and infer relevant values</li><li>Sample prompt: "Identify missing CRM fields, enrich with researched data, then update each relevant record."</li></ul></div>
+            <div class="case-card"><h3>Customer Prospecting</h3><ul><li>Find new prospects from public market and business signals</li><li>Collect company and contact details for outreach</li><li>Sample prompt: "Scan the stock exchange and suggest customers that may need my service/product, get their details, and enter them into the CRM."</li></ul></div>
+            <div class="case-card"><h3>Sales Pipeline</h3><ul><li>Score leads and prioritize outreach</li><li>Track stage progression</li><li>Sample prompt: "Show high-intent leads with no follow-up this week and create tasks for reps."</li></ul></div>
+            <div class="case-card"><h3>CSV Import With Field Revision</h3><ul><li>Learn CSV headers and compare against CRM schema</li><li>Create or modify missing fields through MCP before import</li><li>Sample prompt: "Review this CSV, add missing contact fields in BROSH CRM, and import the cleaned dataset."</li></ul></div>
+            <div class="case-card"><h3>CRM Template Newsletter</h3><ul><li>Use existing CRM templates with dynamic fields</li><li>Send newsletter campaigns directly via MCP send-email tools</li><li>Sample prompt: "Send the monthly newsletter template to all customers with active subscriptions and include account-level merge fields."</li></ul></div>
+            <div class="case-card"><h3>Custom AI Tailored Email</h3><ul><li>Research each customer/account before outreach</li><li>Generate and send one-by-one personalized product emails</li><li>Sample prompt: "Do market research for each lead, write a custom product pitch, and send each customer a tailored email via MCP."</li></ul></div>
+            <div class="case-card"><h3>Customer Success</h3><ul><li>Review account history instantly</li><li>Update contact and account info</li><li>Sample prompt: "List at-risk accounts and suggest renewal plays based on recent ticket and activity trends."</li></ul></div>
+            <div class="case-card"><h3>Support Operations</h3><ul><li>Create and update tickets</li><li>Monitor SLA response times</li><li>Sample prompt: "Find open tickets older than 48 hours grouped by priority and owner."</li></ul></div>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <h2 class="section-title">Who It’s For</h2>
+          <p class="section-sub">Built for every role that needs fast CRM action from AI.</p>
+          <div class="persona-grid">
+            <div class="persona-card"><h3>Sales Teams</h3><ul><li>Update deals from chat</li><li>Access customer context live</li><li>Generate quick reports</li></ul></div>
+            <div class="persona-card"><h3>Customer Success</h3><ul><li>Track health and support</li><li>Manage accounts faster</li><li>Reduce manual data entry</li></ul></div>
+            <div class="persona-card"><h3>Executives & Ops</h3><ul><li>Get live KPI snapshots</li><li>Ask plain-English questions</li><li>Accelerate decisions</li></ul></div>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <p><strong>Simple Installation</strong></p>
+          <div class="mini-steps">
+            <div class="mini-step">
+              <span class="num">1</span>
+              <h4>Add MCP URL</h4>
+              <p>Set your MCP server URL to <strong>https://mcp.brosh.io</strong>.</p>
+            </div>
+            <div class="mini-step">
+              <span class="num">2</span>
+              <h4>Choose OAuth</h4>
+              <p>Authenticate with your BROSH account when prompted.</p>
+            </div>
+            <div class="mini-step">
+              <span class="num">3</span>
+              <h4>Start Working</h4>
+              <p>Query, create, and update CRM records with natural language.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <p><strong>ChatGPT + Claude Setup (Quick)</strong></p>
+          <p>1. Create a new connector/app and give it a name (example: <strong>BROSH CRM</strong>).</p>
+          <p>2. Paste this MCP URL: <code>https://mcp.brosh.io</code>.</p>
+          <p>3. Click <strong>Connect</strong> (or Add), then finish OAuth login.</p>
+          <div class="shot-grid">
+            <div class="shot-card">
+              <div class="shot-head">
+                <h3>ChatGPT MCP Setup</h3>
+                <span class="shot-tag">Screenshot</span>
+              </div>
+              <div class="shot-wrap">
+                <img src="/.well-known/cpt_mcp.jpg" alt="ChatGPT MCP setup screen for BROSH CRM" class="zoomable-shot">
+              </div>
+              <ul class="shot-steps">
+                <li>Open connectors/tools and create a new MCP connection.</li>
+                <li>Name it <strong>BROSH CRM</strong> and paste <code>https://mcp.brosh.io</code>.</li>
+                <li>Click connect and finish OAuth in the browser popup.</li>
+              </ul>
+            </div>
+            <div class="shot-card">
+              <div class="shot-head">
+                <h3>Claude MCP Setup</h3>
+                <span class="shot-tag">Screenshot</span>
+              </div>
+              <div class="shot-wrap">
+                <img src="/.well-known/brosh_cload.jpg" alt="Claude MCP setup screen for BROSH CRM" class="zoomable-shot">
+              </div>
+              <ul class="shot-steps">
+                <li>Add a new MCP server in Claude settings.</li>
+                <li>Use server URL <code>https://mcp.brosh.io</code> and save.</li>
+                <li>Authorize once, then start querying and updating CRM from chat.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <p><strong>Pro Prompt Examples</strong></p>
+          <p>"Show enterprise opportunities in Proposal stage over 75000 with no activity in 7 days, grouped by owner."</p>
+          <p>"Create a follow-up task for each lead scored above 85 this week and assign by territory."</p>
+          <p>"Summarize support tickets older than 48 hours by severity, account ARR, and next best action."</p>
+        </div>
+
+        <p style="color: #2d3748; font-size: 16px; line-height: 1.6; margin-bottom: 24px; margin-top: 22px;">
+          This local server is ready to complete authentication and connect your AI client to BROSH CRM data.
         </p>
 
         <div class="steps">
@@ -675,6 +1289,18 @@ function startOAuthCallbackServer(port: number = 3000): Promise<never> {
           <p><strong>Scope:</strong> Full access to your BROSH CRM data (contacts, opportunities, accounts, etc.)</p>
         </div>
 
+        <div class="info-box">
+          <h2 class="section-title">Benefits of Using MCP</h2>
+          <p class="section-sub">Model Context Protocol makes BROSH CRM truly AI-ready for secure, scalable business workflows.</p>
+          <ul class="detail-list">
+            <li>🔐 Enterprise-grade OAuth2 authentication with automatic token refresh support</li>
+            <li>⚡ Fast setup using one MCP URL across ChatGPT, Claude, and VS Code</li>
+            <li>📊 Full CRUD access to BROSH CRM data for sales, support, and operations</li>
+            <li>🧠 Natural-language automation that reduces manual CRM work</li>
+            <li>🚀 Faster decisions through live CRM insights directly in AI conversations</li>
+          </ul>
+        </div>
+
         <div class="button-container">
           ${authUrl ? `<a href="${authUrl}" class="login-button">🚀 Login to BROSH CRM</a>` : '<p style="color: #e53e3e;">⚠️ OAuth URL not configured</p>'}
         </div>
@@ -686,6 +1312,55 @@ function startOAuthCallbackServer(port: number = 3000): Promise<never> {
       <p style="margin-top: 8px; font-size: 12px;">Server: http://localhost:${actualPort}/ • Callback: /oauth/callback</p>
     </div>
   </div>
+  <div id="shotLightbox" class="lightbox" aria-hidden="true">
+    <button type="button" class="lightbox-close" aria-label="Close image viewer">×</button>
+    <img id="shotLightboxImg" alt="Expanded setup screenshot">
+    <div class="lightbox-hint">Click image, press Esc, or click outside to close</div>
+  </div>
+  <script>
+    (function () {
+      var lightbox = document.getElementById('shotLightbox');
+      var lightboxImg = document.getElementById('shotLightboxImg');
+      var closeBtn = lightbox ? lightbox.querySelector('.lightbox-close') : null;
+      var zoomables = document.querySelectorAll('.zoomable-shot');
+
+      function closeLightbox() {
+        if (!lightbox || !lightboxImg) return;
+        lightbox.classList.remove('open');
+        lightbox.setAttribute('aria-hidden', 'true');
+        lightboxImg.removeAttribute('src');
+      }
+
+      zoomables.forEach(function (img) {
+        img.addEventListener('click', function () {
+          if (!lightbox || !lightboxImg) return;
+          var src = img.getAttribute('src');
+          var alt = img.getAttribute('alt') || 'Expanded setup screenshot';
+          if (!src) return;
+          lightboxImg.setAttribute('src', src);
+          lightboxImg.setAttribute('alt', alt);
+          lightbox.classList.add('open');
+          lightbox.setAttribute('aria-hidden', 'false');
+        });
+      });
+
+      if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
+
+      if (lightbox) {
+        lightbox.addEventListener('click', function (event) {
+          if (event.target === lightbox || event.target === lightboxImg) {
+            closeLightbox();
+          }
+        });
+      }
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          closeLightbox();
+        }
+      });
+    })();
+  </script>
 </body>
 </html>`);
         return;
@@ -726,7 +1401,7 @@ function startOAuthCallbackServer(port: number = 3000): Promise<never> {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BROSH CRM - Authentication Failed</title>
-  <link rel="icon" type="image/x-icon" href="https://app.brosh.io/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="https://www.brosh.io/favicon.ico">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -819,7 +1494,7 @@ function startOAuthCallbackServer(port: number = 3000): Promise<never> {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BROSH CRM - Security Validation Failed</title>
-  <link rel="icon" type="image/x-icon" href="https://app.brosh.io/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="https://www.brosh.io/favicon.ico">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -914,106 +1589,98 @@ function startOAuthCallbackServer(port: number = 3000): Promise<never> {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BROSH CRM - Authentication Successful</title>
-  <link rel="icon" type="image/x-icon" href="https://app.brosh.io/favicon.ico">
+  <title>BROSH CRM — Connected</title>
+  <link rel="icon" type="image/x-icon" href="https://www.brosh.io/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg-1:#071426;--bg-2:#0f2e46;--bg-3:#1a6a7e;
+      --brand-1:#08a2a1;--brand-2:#1a5cc8;--accent:#ff8a3d;
+      --ok-bg:#d8f7e9;--ok-tx:#10563d;
     }
-    .container {
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      padding: 48px;
-      max-width: 500px;
-      width: 100%;
-      text-align: center;
-      animation: slideIn 0.5s ease-out;
+    body{
+      font-family:'Manrope',system-ui,-apple-system,sans-serif;
+      background:
+        radial-gradient(900px 560px at 5% -20%,rgba(255,138,61,.22),transparent 70%),
+        radial-gradient(1000px 600px at 95% -30%,rgba(8,162,161,.20),transparent 72%),
+        linear-gradient(135deg,var(--bg-1) 0%,var(--bg-2) 45%,var(--bg-3) 100%);
+      min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
     }
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
+    .card{
+      background:linear-gradient(180deg,#fff 0%,#f7fbff 100%);
+      border-radius:24px;
+      box-shadow:0 28px 80px rgba(1,8,20,.44);
+      border:1px solid rgba(255,255,255,.6);
+      padding:52px 44px 44px;
+      max-width:500px;width:100%;text-align:center;
+      animation:rise .55s cubic-bezier(.22,.61,.36,1) both;
+      position:relative;overflow:hidden;
     }
-    .icon {
-      font-size: 72px;
-      margin-bottom: 24px;
-      animation: bounce 0.6s ease-in-out;
+    .card::before{
+      content:'';position:absolute;width:340px;height:340px;
+      right:-160px;top:-180px;border-radius:50%;
+      background:radial-gradient(circle,rgba(8,162,161,.18),transparent 70%);
+      pointer-events:none;
     }
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-20px); }
+    @keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+    .check-wrap{
+      width:88px;height:88px;border-radius:50%;
+      background:linear-gradient(135deg,var(--brand-1),var(--brand-2));
+      box-shadow:0 12px 36px rgba(8,162,161,.48);
+      display:flex;align-items:center;justify-content:center;
+      margin:0 auto 32px;
+      animation:pop .5s .2s cubic-bezier(.34,1.56,.64,1) both;
     }
-    h1 {
-      color: #1a202c;
-      font-size: 32px;
-      font-weight: 700;
-      margin-bottom: 16px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    @keyframes pop{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}
+    .check-wrap svg{width:42px;height:42px;stroke:#fff;stroke-width:3;fill:none;
+      stroke-linecap:round;stroke-linejoin:round}
+    .check-path{stroke-dasharray:50;stroke-dashoffset:50;animation:draw .4s .65s ease forwards}
+    @keyframes draw{to{stroke-dashoffset:0}}
+    h1{
+      font-family:'Space Grotesk','Manrope',sans-serif;
+      font-size:clamp(24px,4vw,32px);font-weight:700;letter-spacing:-.5px;
+      background:linear-gradient(130deg,#104179 0%,#0e7f8f 55%,#ff8a3d 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      margin-bottom:12px;
     }
-    p {
-      color: #4a5568;
-      font-size: 16px;
-      line-height: 1.6;
-      margin-bottom: 12px;
+    .tagline{color:#597095;font-size:15px;font-weight:500;margin-bottom:28px;line-height:1.6}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      background:var(--ok-bg);color:var(--ok-tx);
+      padding:10px 22px;border-radius:50px;
+      font-size:14px;font-weight:700;margin-bottom:28px;
     }
-    .success-box {
-      background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
-      padding: 20px;
-      border-radius: 12px;
-      margin: 24px 0;
+    .pill svg{width:16px;height:16px;fill:var(--ok-tx);flex-shrink:0}
+    .divider{height:1px;background:#dce8f6;margin:24px 0}
+    .hint{
+      background:#f1f7ff;border-radius:10px;
+      padding:14px 18px;font-size:13px;color:#486581;line-height:1.6;
     }
-    .success-text {
-      color: #22543d;
-      font-weight: 600;
-      font-size: 18px;
-    }
-    .footer {
-      margin-top: 32px;
-      padding-top: 24px;
-      border-top: 1px solid #e2e8f0;
-      color: #718096;
-      font-size: 14px;
-    }
-    .brosh-logo {
-      color: #667eea;
-      font-weight: 700;
-      font-size: 20px;
-      margin-bottom: 8px;
-    }
-    .close-hint {
-      background: #edf2f7;
-      padding: 12px 20px;
-      border-radius: 8px;
-      margin-top: 16px;
-      color: #2d3748;
-      font-size: 14px;
+    .hint a{color:var(--brand-2);font-weight:600;text-decoration:none}
+    .hint a:hover{text-decoration:underline}
+    .brand{
+      margin-top:28px;font-size:12px;font-weight:600;letter-spacing:.05em;
+      color:#b0c4de;text-transform:uppercase;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="icon">✅</div>
-    <h1>Authentication Successful!</h1>
-    <div class="success-box">
-      <div class="success-text">You're all set! Your BROSH CRM account is now connected.</div>
+  <div class="card">
+    <div class="check-wrap">
+      <svg viewBox="0 0 24 24"><polyline class="check-path" points="4,13 9,18 20,7"/></svg>
     </div>
-    <p>Your authentication was completed securely.</p>
-    <p>You can now access all your CRM data through the MCP interface.</p>
-    <div class="close-hint">You can safely close this window or visit <a href="/" style="color: #667eea;">http://localhost:${actualPort}/</a> to see your status.</div>
-    <div class="footer">
-      <div class="brosh-logo">BROSH AI CRM</div>
-      <p>Powered by Model Context Protocol</p>
+    <h1>You're Connected!</h1>
+    <p class="tagline">Your BROSH CRM account has been authorized.<br>You can now use all CRM tools from your AI assistant.</p>
+    <div class="pill">
+      <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm3.7 6.3l-4 4a1 1 0 01-1.4 0l-2-2a1 1 0 111.4-1.4L9 10.58l3.3-3.3a1 1 0 111.4 1.42z"/></svg>
+      Authentication Successful
     </div>
+    <div class="divider"></div>
+    <div class="hint">You can safely close this window, or <a href="http://localhost:${actualPort}/">view your connection status</a>.</div>
+    <div class="brand">BROSH AI CRM &nbsp;·&nbsp; Powered by MCP</div>
   </div>
 </body>
 </html>`);
@@ -1029,7 +1696,7 @@ function startOAuthCallbackServer(port: number = 3000): Promise<never> {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BROSH CRM - Token Exchange Failed</title>
-  <link rel="icon" type="image/x-icon" href="https://app.brosh.io/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="https://www.brosh.io/favicon.ico">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -1682,8 +2349,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+  const requiresAuth = !['brosh_start_oauth', 'brosh_exchange_token'].includes(name);
 
   try {
+    if (requiresAuth) {
+      await ensureValidAccessToken();
+    }
+
     switch (name) {
       case 'brosh_start_oauth':
         return await handleStartOAuth(args);
